@@ -15,3 +15,8 @@ export function getSize(difficulty: Difficulty): number {
   const size = minSize + Math.floor(((difficulty - LOW) / (HIGH - LOW)) * (maxSize - minSize + 1));
   return Math.min(size, maxSize);
 }
+
+export function getDifficulty(level: number): Difficulty {
+  const diff = Math.min(LOW + Math.floor((level - 1) / 5), HIGH);
+  return diff as Difficulty;
+}

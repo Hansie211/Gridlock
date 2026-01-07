@@ -4,7 +4,7 @@ import createRNG, { RNG } from './RNG';
 import Solution from './solution';
 
 interface WorkerMessage {
-  seed: number;
+  level: number;
   difficulty: Difficulty;
 }
 
@@ -15,8 +15,8 @@ interface WorkerResponse {
 }
 
 self.onmessage = async (event: MessageEvent<WorkerMessage>) => {
-  const { seed, difficulty } = event.data;
-  const rng: RNG = createRNG(seed);
+  const { level, difficulty } = event.data;
+  const rng: RNG = createRNG(level);
 
   try {
     const [board, solution] = generateBoard(difficulty, rng);

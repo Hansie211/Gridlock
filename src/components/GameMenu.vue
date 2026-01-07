@@ -9,7 +9,7 @@
 
     <q-card-section class="full-width q-gutter-sm">
       <q-btn label="Settings" icon="settings" align="left" class="full-width" unelevated rounded @click="$emit('settings-click')" />
-      <q-btn label="New Level" icon="play_arrow" align="left" class="full-width" unelevated rounded @click="$emit('new-level-click')" />
+      <q-btn label="Next Level" icon="play_arrow" align="left" class="full-width" unelevated rounded @click="$emit('next-level-click')" />
       <q-btn label="Retry Level" icon="refresh" align="left" class="full-width" unelevated rounded @click="$emit('retry-level-click')" />
       <q-btn label="Completed Games" icon="check_circle" align="left" class="full-width" unelevated rounded @click="$emit('show-completed-click')" />
     </q-card-section>
@@ -39,7 +39,7 @@ export default defineComponent({
     },
   },
 
-  emits: ['settings-click', 'new-level-click', 'retry-level-click', 'show-completed-click', 'close'],
+  emits: ['settings-click', 'next-level-click', 'retry-level-click', 'show-completed-click', 'close'],
 });
 </script>
 

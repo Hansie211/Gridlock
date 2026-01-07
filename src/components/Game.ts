@@ -1,7 +1,7 @@
 import { reactive, watch } from 'vue';
 import Board from './gamemodels/board';
 import Solution from './gamemodels/solution';
-import { Difficulty } from './gamemodels/difficulty';
+import { Difficulty, getDifficulty } from './gamemodels/difficulty';
 
 export interface MoveMemory {
   cellIndex: number;
@@ -12,8 +12,7 @@ export interface SaveGame {
   readonly board: Board;
   readonly solution: Solution;
   readonly userData: { values: number[]; moves: MoveMemory[] };
-  readonly seed: number;
-  readonly difficulty: Difficulty;
+  readonly level: number;
 }
 
 let timer: ReturnType<typeof setInterval> | undefined;
@@ -26,7 +25,7 @@ const GameManager = reactive({
   isGenerating: true,
   elapsedSeconds: 0,
   selectedCellIndex: undefined as number | undefined,
-  seed: 0,
+  level: 0,
   difficulty: 1 as Difficulty,
   isSolved: false,
 
@@ -96,20 +95,20 @@ const GameManager = reactive({
     timer = undefined;
   },
 
-  generateGame(seed: number, difficulty: Difficulty) {
-    this.seed = seed;
-    this.difficulty = difficulty;
+  generateGame(level: number) {
+    this.level = level;
+    this.difficulty = getDifficulty(level);
     this.isGenerating = true;
     this.selectedCellIndex = undefined;
 
-    boardGenerationWorker.postMessage({ seed: this.seed, difficulty: this.difficulty });
+    boardGenerationWorker.postMessage({ level: this.level, difficulty: this.difficulty });
   },
 
   importSaveGame(game: SaveGame) {
     this.board = game.board;
     this.solution = game.solution;
-    this.seed = game.seed;
-    this.difficulty = game.difficulty;
+    this.level = game.level;
+    this.difficulty = getDifficulty(this.level);
 
     this.userValues.length = game.userData.values.length;
     game.userData.values.forEach((v, i) => (this.userValues[i] = v));
@@ -129,8 +128,7 @@ const GameManager = reactive({
       board: this.board,
       solution: this.solution,
       userData: { values: [...this.userValues], moves: [...this.moveMemories] },
-      seed: this.seed,
-      difficulty: this.difficulty,
+      level: this.level,
     };
   },
 

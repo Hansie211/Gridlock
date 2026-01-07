@@ -4,17 +4,28 @@
       <q-spinner-dots size="50px" color="primary" />
       <div class="q-mt-md">
         <p>Generating Board...</p>
-        <p>Level: {{ GameManager.seed }}</p>
+        <p>Level: {{ GameManager.level }}</p>
         <p>Difficulty: {{ GameManager.difficulty }}</p>
       </div>
     </div>
     <template v-else>
-      <p>Level: {{ GameManager.seed }}, difficulty {{ GameManager.difficulty }}, {{ elapsedTime }}</p>
-      <game-board ref="gameBoard" :board="GameManager.board" :solution="GameManager.solution" :selectedCell="GameManager.selectedCellIndex" :user-values="GameManager.userValues" @cell-click="(payload: {idx: number}) => GameManager.setSelectedCell(payload.idx)" />
+      <p class="text-h6 q-gutter-sm">
+        <span>Level: {{ GameManager.level }}</span>
+
+        <span>
+          <template v-for="i in ((GameManager.difficulty - 1) % 3) + 1" :key="i">
+            <q-icon name="star" size="18px" :class="getStarClass(GameManager.difficulty)" />
+          </template>
+        </span>
+
+        <span>{{ elapsedTime }}</span>
+      </p>
+
+      <game-board :board="GameManager.board" :solution="GameManager.solution" :selectedCell="GameManager.selectedCellIndex" :user-values="GameManager.userValues" @cell-click="(payload: {idx: number}) => GameManager.setSelectedCell(payload.idx)" />
       <game-keyboard :size="GameManager.board.size" @number-click="onNumberClick" @undo-click="onUndoClick" @menu-click="() => (menuVisible = true)" />
 
       <q-dialog v-model="menuVisible" persistent>
-        <game-menu :level="GameManager.seed" :difficulty="GameManager.difficulty" @close="closeMenu" @retry-level-click="onRetryLevelClick" @new-level-click="onNewLevelClick" />
+        <game-menu :level="GameManager.level" :difficulty="GameManager.difficulty" @close="closeMenu" @retry-level-click="onRetryLevelClick" @next-level-click="onNextLevelClick" />
       </q-dialog>
     </template>
   </q-page>
@@ -25,8 +36,6 @@ import GameBoard from 'src/components/GameBoard.vue';
 import GameKeyboard from 'src/components/GameKeyboard.vue';
 import GameMenu from 'src/components/GameMenu.vue';
 import GameManager from 'src/components/Game';
-import DifficultySelectMenu from 'src/components/DifficultySelectMenu.vue';
-import { Difficulty } from 'src/components/gamemodels/difficulty';
 import { defineComponent } from 'vue';
 import { Dialog } from 'quasar';
 import { usePreferenceStore } from 'src/stores/preference-store';
@@ -40,10 +49,10 @@ export default defineComponent({
   },
 
   mounted() {
-    if (this.preferenceStore.saveGame) {
+    if (this.preferenceStore.saveGame && this.preferenceStore.saveGame.board && this.preferenceStore.saveGame.board && this.preferenceStore.saveGame.solution && this.preferenceStore.saveGame.userData && this.preferenceStore.saveGame.userData.moves && this.preferenceStore.saveGame.userData.values && this.preferenceStore.saveGame.level) {
       this.GameManager.importSaveGame(this.preferenceStore.saveGame);
     } else {
-      this.GameManager.generateGame(this.preferenceStore.lastSeed, this.preferenceStore.difficulty);
+      this.GameManager.generateGame(this.preferenceStore.lastLevel);
     }
   },
 
@@ -92,25 +101,27 @@ export default defineComponent({
       });
     },
 
-    async onNewLevelClick() {
-      const difficulty: Difficulty | null = await new Promise((resolve) => {
-        Dialog.create({
-          component: DifficultySelectMenu,
-          componentProps: {
-            initial: this.GameManager.difficulty ?? 1,
-          },
-          persistent: true,
-        }).onOk((val) => resolve(val));
-      });
-
-      if (difficulty) {
-        this.GameManager.generateGame(this.GameManager.seed + 1, difficulty);
+    onNextLevelClick() {
+      Dialog.create({
+        title: 'Next Level',
+        message: 'Are you ready to start the next level?',
+        persistent: true,
+        ok: true,
+        cancel: true,
+      }).onOk(() => {
+        this.GameManager.generateGame(this.GameManager.level + 1);
         this.closeMenu();
-      }
+      });
     },
 
     closeMenu() {
       this.menuVisible = false;
+    },
+
+    getStarClass(difficulty: number): string {
+      if (difficulty >= 1 && difficulty <= 3) return 'yellow-star';
+      if (difficulty >= 4 && difficulty <= 6) return 'blue-star';
+      return 'red-star';
     },
   },
   watch: {
@@ -126,14 +137,13 @@ export default defineComponent({
           },
           persistent: true,
         }).onOk(() => {
-          this.GameManager.generateGame(this.GameManager.seed + 1, this.GameManager.difficulty);
+          this.GameManager.generateGame(this.GameManager.level + 1);
         });
       }
     },
     'GameManager.isGenerating'(newVal, oldVal) {
       if (oldVal && !newVal) {
-        this.preferenceStore.lastSeed = this.GameManager.seed;
-        this.preferenceStore.difficulty = this.GameManager.difficulty;
+        this.preferenceStore.lastLevel = this.GameManager.level;
         this.preferenceStore.saveGame = this.GameManager.exportSaveGame();
       }
     },
@@ -154,3 +164,43 @@ export default defineComponent({
   },
 });
 </script>
+
+<style scoped>
+.level-info {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  font-family: 'Arial', sans-serif;
+  font-size: 1.2rem;
+}
+
+.level-text {
+  font-weight: bold;
+}
+
+.difficulty-stars {
+}
+
+.difficulty-stars .star {
+  font-size: 1.4rem;
+  margin-right: 0.1rem;
+}
+
+.yellow-star {
+  color: #ffd700; /* gold */
+}
+
+.blue-star {
+  color: #1e90ff; /* dodger blue */
+}
+
+.red-star {
+  color: #ff4500; /* orange red */
+}
+
+.elapsed-time {
+  font-style: italic;
+  color: #555;
+}
+</style>
