@@ -100,6 +100,7 @@ module.exports = configure(function (/* ctx */) {
       // minify: false,
       // polyfillModulePreload: true,
       distDir: 'docs',
+      publicPath: '/Gridlock/',
 
       // extendViteConf (viteConf) {},
       // viteVuePluginOptions: {},
