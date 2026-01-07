@@ -105,7 +105,15 @@ class SolutionImpl implements Solution {
     });
   }
 
-  private static propagate(boardMap: BoardMap, values: number[]): boolean {
+  private static undo(values: number[], trail: number[], downToIndex: number) {
+    for (let i = trail.length - 1; i >= downToIndex; i--) {
+      values[trail[i]] = 0;
+    }
+
+    trail.length = downToIndex;
+  }
+
+  private static propagate(boardMap: BoardMap, values: number[], trail: number[]): boolean {
     let changed = true;
 
     while (changed) {
@@ -118,6 +126,7 @@ class SolutionImpl implements Solution {
         if (options.length === 0) return false; // weird
         if (options.length === 1) {
           values[i] = options[0];
+          trail.push(i);
           changed = true;
         }
       }
@@ -126,8 +135,8 @@ class SolutionImpl implements Solution {
     return true;
   }
 
-  private static solve(boardMap: BoardMap, values: number[], rng: RNG): number[] | null {
-    if (!this.propagate(boardMap, values)) return null;
+  private static solve(boardMap: BoardMap, values: number[], rng: RNG, trail: number[] = []): number[] | null {
+    if (!this.propagate(boardMap, values, trail)) return null;
 
     let bestCell = undefined;
     let bestOptions: number[] | undefined = undefined;
@@ -151,13 +160,13 @@ class SolutionImpl implements Solution {
       return values;
     }
 
-    const options = bestOptions as number[];
-
-    for (const value of options) {
+    for (const value of bestOptions!) {
       values[bestCell] = value;
 
-      const result = this.solve(boardMap, values, rng);
+      const currentTrailSize = trail.length;
+      const result = this.solve(boardMap, values, rng, trail);
       if (result !== null) return result;
+      this.undo(values, trail, currentTrailSize);
 
       values[bestCell] = 0;
     }

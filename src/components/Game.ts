@@ -145,6 +145,7 @@ boardGenerationWorker.onmessage = (event: MessageEvent) => {
     console.error('Board generation failed:', data.error);
     return;
   }
+
   GameManager.board = data.board;
   GameManager.solution = data.solution;
   GameManager.isGenerating = false;
