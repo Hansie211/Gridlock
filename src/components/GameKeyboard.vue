@@ -21,7 +21,7 @@ export default defineComponent({
     size: { type: Number, required: true },
   },
   emits: ['number-click', 'undo-click', 'menu-click'],
-  setup(props, { emit }) {
+  setup(_, { emit }) {
     const onNumberClick = (n: number) => {
       emit('number-click', { value: n, notesMode: false });
     };

@@ -1,22 +1,22 @@
 <template>
   <q-page class="column items-center justify-evenly">
-    <div v-if="isGenerating" class="loading-overlay column items-center justify-center">
+    <div v-if="GameManager.isGenerating" class="loading-overlay column items-center justify-center">
       <q-spinner-dots size="50px" color="primary" />
       <div class="q-mt-md">
         <p>Generating Board...</p>
-        <p>Level: {{ seed }}</p>
-        <p>Difficulty: {{ difficulty }}</p>
+        <p>Level: {{ GameManager.seed }}</p>
+        <p>Difficulty: {{ GameManager.difficulty }}</p>
       </div>
     </div>
     <template v-else>
-      <p>Level: {{ seed }}, difficulty {{ difficulty }}, {{ elapsedTime }}</p>
-      <game-board ref="gameBoard" :board="board!" :solution="solution!" @solved="onSolved" />
-      <game-keyboard :size="board!.size" @number-click="onNumberClick" @undo-click="onUndoClick" @menu-click="() => (menuVisible = true)" />
-    </template>
+      <p>Level: {{ GameManager.seed }}, difficulty {{ GameManager.difficulty }}, {{ elapsedTime }}</p>
+      <game-board ref="gameBoard" :board="GameManager.board" :solution="GameManager.solution" :selectedCell="GameManager.selectedCellIndex" :user-values="GameManager.userValues" @cell-click="(payload: {idx: number}) => GameManager.setSelectedCell(payload.idx)" />
+      <game-keyboard :size="GameManager.board.size" @number-click="onNumberClick" @undo-click="onUndoClick" @menu-click="() => (menuVisible = true)" />
 
-    <q-dialog v-model="menuVisible" persistent>
-      <game-menu :level="seed" :difficulty="difficulty" @close="closeMenu" @retry-level-click="onRetryLevelClick" @new-level-click="onNewLevelClick" />
-    </q-dialog>
+      <q-dialog v-model="menuVisible" persistent>
+        <game-menu :level="GameManager.seed" :difficulty="GameManager.difficulty" @close="closeMenu" @retry-level-click="onRetryLevelClick" @new-level-click="onNewLevelClick" />
+      </q-dialog>
+    </template>
   </q-page>
 </template>
 
@@ -24,100 +24,52 @@
 import GameBoard from 'src/components/GameBoard.vue';
 import GameKeyboard from 'src/components/GameKeyboard.vue';
 import GameMenu from 'src/components/GameMenu.vue';
+import GameManager from 'src/components/Game';
 import DifficultySelectMenu from 'src/components/DifficultySelectMenu.vue';
-import Board from 'src/components/gamemodels/board';
 import { Difficulty } from 'src/components/gamemodels/difficulty';
-import Solution from 'src/components/gamemodels/solution';
-import { defineComponent, ref } from 'vue';
+import { defineComponent } from 'vue';
 import { Dialog } from 'quasar';
+import { usePreferenceStore } from 'src/stores/preference-store';
 
 export default defineComponent({
   name: 'IndexPage',
   components: { GameBoard, GameKeyboard, GameMenu },
 
   setup() {
-    const gameBoard = ref<InstanceType<typeof GameBoard> | null>(null);
-
-    const isGenerating = ref(true);
-    const board = ref<Board | undefined>();
-    const solution = ref<Solution | undefined>();
-
-    const elapsedSeconds = ref<number>(0);
-    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-    let timer: ReturnType<typeof setInterval> = undefined!;
-    const resetTimer = () => {
-      if (timer) clearInterval(timer);
-      elapsedSeconds.value = 0;
-
-      timer = setInterval(() => {
-        elapsedSeconds.value += 1;
-      }, 1000);
-    };
-
-    const clearTimer = () => {
-      if (timer) clearInterval(timer);
-    };
-
-    const boardGenerationWorker = new Worker(new URL('../components/gamemodels/boardWorker.ts', import.meta.url), { type: 'module' });
-    boardGenerationWorker.onmessage = (event: MessageEvent) => {
-      const data = event.data as { board?: Board; solution?: Solution; error?: string };
-      if (data.error) {
-        console.error('Board generation failed:', data.error);
-        return;
-      }
-      board.value = data.board;
-      solution.value = data.solution;
-      isGenerating.value = false;
-      resetTimer();
-    };
-
-    return { gameBoard, isGenerating, board, solution, boardGenerationWorker, elapsedSeconds, clearTimer, resetTimer };
+    return { GameManager, preferenceStore: usePreferenceStore() };
   },
 
   mounted() {
-    const seed = getRandomInt(1, 1000);
-    const difficulty = getRandomInt(1, 9) as Difficulty;
-
-    this.generateLevel(seed, difficulty);
+    if (this.preferenceStore.saveGame) {
+      this.GameManager.importSaveGame(this.preferenceStore.saveGame);
+    } else {
+      this.GameManager.generateGame(this.preferenceStore.lastSeed, this.preferenceStore.difficulty);
+    }
   },
 
   unmounted() {
-    this.clearTimer();
+    this.GameManager.clear();
   },
 
   data() {
     return {
-      seed: 0,
-      difficulty: 1 as Difficulty,
       menuVisible: false,
     };
   },
 
   methods: {
-    generateLevel(seed: number, difficulty: Difficulty) {
-      this.seed = seed;
-      this.difficulty = difficulty;
-      this.isGenerating = true;
-
-      this.boardGenerationWorker.postMessage({ seed: this.seed, difficulty: this.difficulty });
-    },
-
     onUndoClick() {
-      if (!this.gameBoard) return;
-
-      this.gameBoard.undoLastUserMove();
+      this.GameManager.undoLastMove();
+      this.preferenceStore.saveGame = this.GameManager.exportSaveGame();
     },
 
     onNumberClick(payload: { value: number; notesMode: boolean }) {
-      if (!this.gameBoard) return;
-
-      this.gameBoard.setSelectedCellValue(payload.value, payload.notesMode);
+      this.GameManager.setUserValue(payload.value);
+      this.preferenceStore.saveGame = this.GameManager.exportSaveGame();
     },
 
     onRetryLevelClick() {
-      if (!this.gameBoard) return;
-
-      const gameBoard = this.gameBoard;
+      const gameState = this.GameManager;
 
       Dialog.create({
         title: 'Retry Level',
@@ -134,8 +86,8 @@ export default defineComponent({
           flat: true,
         },
       }).onOk(() => {
-        gameBoard.resetLevel();
-        this.resetTimer();
+        gameState.resetLevel();
+        this.preferenceStore.saveGame = this.GameManager.exportSaveGame();
         this.closeMenu();
       });
     },
@@ -145,14 +97,14 @@ export default defineComponent({
         Dialog.create({
           component: DifficultySelectMenu,
           componentProps: {
-            initial: this.difficulty ?? 1,
+            initial: this.GameManager.difficulty ?? 1,
           },
           persistent: true,
         }).onOk((val) => resolve(val));
       });
 
       if (difficulty) {
-        this.generateLevel(getRandomInt(1, 1000), difficulty);
+        this.GameManager.generateGame(this.GameManager.seed + 1, difficulty);
         this.closeMenu();
       }
     },
@@ -160,31 +112,39 @@ export default defineComponent({
     closeMenu() {
       this.menuVisible = false;
     },
-
-    onSolved() {
-      this.clearTimer();
-
-      Dialog.create({
-        title: 'Congratulations!',
-        message: `You solved the level in ${this.elapsedTime}!`,
-        ok: {
-          label: 'Ok',
-          color: 'primary',
-          unelevated: true,
-        },
-        persistent: true,
-      }).onOk(() => {
-        this.generateLevel(this.seed + 1, this.difficulty);
-      });
+  },
+  watch: {
+    'GameManager.isSolved'(newVal, oldVal) {
+      if (!oldVal && newVal) {
+        Dialog.create({
+          title: 'Congratulations!',
+          message: `You solved the level in ${this.elapsedTime}!`,
+          ok: {
+            label: 'Ok',
+            color: 'primary',
+            unelevated: true,
+          },
+          persistent: true,
+        }).onOk(() => {
+          this.GameManager.generateGame(this.GameManager.seed + 1, this.GameManager.difficulty);
+        });
+      }
+    },
+    'GameManager.isGenerating'(newVal, oldVal) {
+      if (oldVal && !newVal) {
+        this.preferenceStore.lastSeed = this.GameManager.seed;
+        this.preferenceStore.difficulty = this.GameManager.difficulty;
+        this.preferenceStore.saveGame = this.GameManager.exportSaveGame();
+      }
     },
   },
 
   computed: {
     elapsedTime(): string {
-      if (this.elapsedSeconds <= 0) return '00:00';
+      if (this.GameManager.elapsedSeconds <= 0) return '00:00';
 
-      const minutes = Math.floor(this.elapsedSeconds / 60);
-      const seconds = this.elapsedSeconds % 60;
+      const minutes = Math.floor(this.GameManager.elapsedSeconds / 60);
+      const seconds = this.GameManager.elapsedSeconds % 60;
 
       const mm = String(minutes).padStart(2, '0');
       const ss = String(seconds).padStart(2, '0');
@@ -193,10 +153,4 @@ export default defineComponent({
     },
   },
 });
-
-function getRandomInt(min: number, max: number): number {
-  min = Math.ceil(min);
-  max = Math.floor(max);
-  return Math.floor(min + (max - min + 1) * Math.random());
-}
 </script>

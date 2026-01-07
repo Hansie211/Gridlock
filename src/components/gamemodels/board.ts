@@ -1,6 +1,6 @@
 import { Difficulty, getSize } from './difficulty';
 import createRNG, { RNG } from './RNG';
-import Solution from './solution';
+import Solution, { generateSolution } from './solution';
 
 export default interface Board {
   readonly size: number;
@@ -190,7 +190,7 @@ export function generateBoard(difficulty: Difficulty, rng: RNG): [Board, Solutio
     const board = new BoardImpl(size, seededRNG);
     let solution: Solution | undefined = undefined;
     try {
-      solution = new Solution(board, difficulty, seededRNG);
+      solution = generateSolution(board, difficulty, seededRNG);
     } catch (e) {
       const msg = (e as Error).message;
       if (msg === 'Unsolvable board') {
@@ -199,6 +199,7 @@ export function generateBoard(difficulty: Difficulty, rng: RNG): [Board, Solutio
         throw e;
       }
     }
+
     if (solution) return [board, solution];
   }
 }

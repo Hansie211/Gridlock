@@ -2,14 +2,19 @@ import Board from './board';
 import { Difficulty, percentageHelp } from './difficulty';
 import { RNG } from './RNG';
 
-export default class Solution {
+export default interface Solution {
+  readonly solution: number[];
+  readonly skeleton: number[];
+}
+
+class SolutionImpl implements Solution {
   readonly solution: number[];
   readonly skeleton: number[];
 
   constructor(public readonly board: Board, difficulty: Difficulty, rng: RNG) {
     const boardMap = createBoardMap(board);
 
-    const result = Solution.solve(
+    const result = SolutionImpl.solve(
       boardMap,
       Array.from({ length: board.cellcount }, () => 0),
       rng
@@ -42,13 +47,48 @@ export default class Solution {
 
       for (const valueOption of validOptions) {
         this.skeleton[cellIndex] = valueOption;
-        if (Solution.solve(boardMap, [...this.skeleton], rng) !== null) {
+        if (SolutionImpl.solve(boardMap, [...this.skeleton], rng) !== null) {
           isRequired = true;
           break;
         }
       }
 
       this.skeleton[cellIndex] = isRequired ? cellValue : 0;
+    }
+
+    // Force-fill cells that have borders on all sides
+    for (let row = 0; row < board.size; row++) {
+      for (let col = 0; col < board.size; col++) {
+        const cellIndex = row * board.size + col;
+
+        const rowSegments = board.rows[row];
+        const colSegments = board.columns[col];
+
+        let rowStart = false;
+        let rowEnd = false;
+        let colStart = false;
+        let colEnd = false;
+
+        let pos = 0;
+        for (const seg of rowSegments) {
+          if (col === pos) rowStart = true;
+          pos += seg - 1;
+          if (col === pos) rowEnd = true;
+          pos += 1;
+        }
+
+        pos = 0;
+        for (const seg of colSegments) {
+          if (row === pos) colStart = true;
+          pos += seg - 1;
+          if (row === pos) colEnd = true;
+          pos += 1;
+        }
+
+        if (rowStart && rowEnd && colStart && colEnd) {
+          this.skeleton[cellIndex] = 1;
+        }
+      }
     }
 
     const minimalPercentage = percentageHelp(difficulty);
@@ -204,4 +244,8 @@ function createBoardMap(board: Board): BoardMap {
   }
 
   return map;
+}
+
+export function generateSolution(board: Board, difficulty: Difficulty, rng: RNG): Solution {
+  return new SolutionImpl(board, difficulty, rng);
 }
