@@ -36,6 +36,7 @@ const GameManager = reactive({
   setUserValue(value: number) {
     if (this.isSolved) return;
     if (this.selectedCellIndex === undefined) return;
+    if (this.solution.skeleton[this.selectedCellIndex] !== 0) return;
 
     this.moveMemories.push({
       cellIndex: this.selectedCellIndex,
