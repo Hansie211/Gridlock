@@ -51,7 +51,7 @@ export default defineComponent({
 
   mounted() {
     if (!isSaveGameValid(this.preferenceStore.saveGame)) {
-      console.log('invalid');
+      this.GameManager.generateGame(1);
       return;
     }
 
