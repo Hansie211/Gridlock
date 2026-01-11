@@ -13,6 +13,7 @@ export interface SaveGame {
   readonly solution: Solution;
   readonly userData: { values: number[]; moves: MoveMemory[] };
   readonly level: number;
+  readonly elapsedSeconds: number;
 }
 
 let timer: ReturnType<typeof setInterval> | undefined;
@@ -83,9 +84,9 @@ const GameManager = reactive({
     this.resetTimer();
   },
 
-  resetTimer() {
+  resetTimer(seconds?: number) {
     if (timer) clearInterval(timer);
-    this.elapsedSeconds = 0;
+    this.elapsedSeconds = seconds ?? 0;
     timer = setInterval(() => {
       this.elapsedSeconds += 1;
     }, 1000);
@@ -121,7 +122,7 @@ const GameManager = reactive({
 
     this.isSolved = false;
     this.isGenerating = false;
-    this.resetTimer();
+    this.resetTimer(game.elapsedSeconds);
   },
 
   exportSaveGame(): SaveGame {
@@ -130,6 +131,7 @@ const GameManager = reactive({
       solution: this.solution,
       userData: { values: [...this.userValues], moves: [...this.moveMemories] },
       level: this.level,
+      elapsedSeconds: this.elapsedSeconds,
     };
   },
 
@@ -160,5 +162,74 @@ watch(
     GameManager.stopTimer();
   }
 );
+
+export function isSaveGameValid(game: unknown): game is SaveGame {
+  function isObject(value: unknown): value is Record<string, unknown> {
+    return typeof value === 'object' && value !== null;
+  }
+
+  function isPositiveInt(value: unknown): value is number {
+    return Number.isSafeInteger(value) && (value as number) >= 0;
+  }
+
+  function isBoard(board: unknown): board is Board {
+    if (!isObject(board)) return false;
+
+    if (!isPositiveInt(board.size)) return false;
+    if (!isPositiveInt(board.cellcount)) return false;
+
+    if (!Array.isArray(board.rows)) return false;
+    if (!board.rows.every((row) => Array.isArray(row) && row.every(isPositiveInt))) return false;
+
+    if (!Array.isArray(board.columns)) return false;
+    if (!board.columns.every((col) => Array.isArray(col) && col.every(isPositiveInt))) return false;
+
+    return true;
+  }
+
+  function isSolution(solution: unknown): solution is Solution {
+    if (!isObject(solution)) return false;
+
+    if (!Array.isArray(solution.solution)) return false;
+    if (!solution.solution.every(isPositiveInt)) return false;
+
+    if (!Array.isArray(solution.skeleton)) return false;
+    if (!solution.skeleton.every(isPositiveInt)) return false;
+
+    return true;
+  }
+
+  function isUserData(userData: unknown): userData is SaveGame['userData'] {
+    if (!isObject(userData)) return false;
+
+    if (!Array.isArray(userData.values)) return false;
+    if (!userData.values.every(isPositiveInt)) return false;
+
+    if (!Array.isArray(userData.moves)) return false;
+    if (!userData.moves.every(isMoveMemory)) return false;
+
+    return true;
+  }
+
+  function isMoveMemory(move: unknown): move is MoveMemory {
+    if (!isObject(move)) return false;
+
+    if (!isPositiveInt(move.cellIndex)) return false;
+    if (!isPositiveInt(move.oldValue)) return false;
+
+    return true;
+  }
+
+  if (!isObject(game)) return false;
+
+  if (!isPositiveInt(game.level)) return false;
+  if (!isPositiveInt(game.elapsedSeconds)) return false;
+
+  if (!isBoard(game.board)) return false;
+  if (!isSolution(game.solution)) return false;
+  if (!isUserData(game.userData)) return false;
+
+  return true;
+}
 
 export default GameManager;

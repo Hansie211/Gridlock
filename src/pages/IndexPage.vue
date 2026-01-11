@@ -9,19 +9,20 @@
       </div>
     </div>
     <template v-else>
-      <p class="text-h6 q-gutter-sm">
-        <span>Level: {{ GameManager.level }}</span>
-
-        <span>
-          <template v-for="i in ((GameManager.difficulty - 1) % 3) + 1" :key="i">
-            <q-icon name="star" size="18px" :class="getStarClass(GameManager.difficulty)" />
-          </template>
-        </span>
-
-        <span>{{ elapsedTime }}</span>
-      </p>
+      <q-chip color="primary" text-color="white" icon="military_tech"> Level {{ GameManager.level }} </q-chip>
 
       <game-board :board="GameManager.board" :solution="GameManager.solution" :selectedCell="GameManager.selectedCellIndex" :user-values="GameManager.userValues" @cell-click="(payload: {idx: number}) => GameManager.setSelectedCell(payload.idx)" />
+
+      <p>
+        <q-chip :color="getDifficultyChipColor(GameManager.difficulty)" text-color="black" icon="stars">
+          <q-icon v-for="i in ((GameManager.difficulty - 1) % 3) + 1" :key="i" name="star" size="18px" class="q-ml-xs" />
+        </q-chip>
+
+        <q-chip color="secondary" text-color="white" icon="schedule">
+          {{ elapsedTime }}
+        </q-chip>
+      </p>
+
       <game-keyboard :size="GameManager.board.size" @number-click="onNumberClick" @undo-click="onUndoClick" @menu-click="() => (menuVisible = true)" />
 
       <q-dialog v-model="menuVisible" persistent>
@@ -35,7 +36,7 @@
 import GameBoard from 'src/components/GameBoard.vue';
 import GameKeyboard from 'src/components/GameKeyboard.vue';
 import GameMenu from 'src/components/GameMenu.vue';
-import GameManager from 'src/components/Game';
+import GameManager, { isSaveGameValid } from 'src/components/Game';
 import { defineComponent } from 'vue';
 import { Dialog } from 'quasar';
 import { usePreferenceStore } from 'src/stores/preference-store';
@@ -49,11 +50,12 @@ export default defineComponent({
   },
 
   mounted() {
-    if (this.preferenceStore.saveGame && this.preferenceStore.saveGame.board && this.preferenceStore.saveGame.board && this.preferenceStore.saveGame.solution && this.preferenceStore.saveGame.userData && this.preferenceStore.saveGame.userData.moves && this.preferenceStore.saveGame.userData.values && this.preferenceStore.saveGame.level) {
-      this.GameManager.importSaveGame(this.preferenceStore.saveGame);
-    } else {
-      this.GameManager.generateGame(this.preferenceStore.lastLevel);
+    if (!isSaveGameValid(this.preferenceStore.saveGame)) {
+      console.log('invalid');
+      return;
     }
+
+    this.GameManager.importSaveGame(this.preferenceStore.saveGame);
   },
 
   unmounted() {
@@ -118,10 +120,10 @@ export default defineComponent({
       this.menuVisible = false;
     },
 
-    getStarClass(difficulty: number): string {
-      if (difficulty >= 1 && difficulty <= 3) return 'yellow-star';
-      if (difficulty >= 4 && difficulty <= 6) return 'blue-star';
-      return 'red-star';
+    getDifficultyChipColor(difficulty: number): string {
+      if (difficulty <= 3) return 'amber';
+      if (difficulty <= 6) return 'blue';
+      return 'red';
     },
   },
   watch: {
@@ -143,9 +145,11 @@ export default defineComponent({
     },
     'GameManager.isGenerating'(newVal, oldVal) {
       if (oldVal && !newVal) {
-        this.preferenceStore.lastLevel = this.GameManager.level;
         this.preferenceStore.saveGame = this.GameManager.exportSaveGame();
       }
+    },
+    'GameManager.elapsedSeconds'() {
+      this.preferenceStore.saveGame = this.GameManager.exportSaveGame();
     },
   },
 
@@ -177,26 +181,6 @@ export default defineComponent({
 
 .level-text {
   font-weight: bold;
-}
-
-.difficulty-stars {
-}
-
-.difficulty-stars .star {
-  font-size: 1.4rem;
-  margin-right: 0.1rem;
-}
-
-.yellow-star {
-  color: #ffd700; /* gold */
-}
-
-.blue-star {
-  color: #1e90ff; /* dodger blue */
-}
-
-.red-star {
-  color: #ff4500; /* orange red */
 }
 
 .elapsed-time {
