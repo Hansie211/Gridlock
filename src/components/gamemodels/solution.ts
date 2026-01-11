@@ -135,7 +135,12 @@ class SolutionImpl implements Solution {
     return true;
   }
 
-  private static solve(boardMap: BoardMap, values: number[], rng: RNG, trail: number[] = []): number[] | null {
+  private static solve(boardMap: BoardMap, values: number[], rng: RNG, trail: number[] = [], try_counter: { value?: number } = {}): number[] | null {
+    try_counter.value = (try_counter.value ?? 0) + 1;
+    if (try_counter.value > 5_000) {
+      return null;
+    }
+
     if (!this.propagate(boardMap, values, trail)) return null;
 
     let bestCell = undefined;
@@ -164,7 +169,7 @@ class SolutionImpl implements Solution {
       values[bestCell] = value;
 
       const currentTrailSize = trail.length;
-      const result = this.solve(boardMap, values, rng, trail);
+      const result = this.solve(boardMap, values, rng, trail, try_counter);
       if (result !== null) return result;
       this.undo(values, trail, currentTrailSize);
 

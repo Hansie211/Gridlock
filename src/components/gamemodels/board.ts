@@ -183,8 +183,15 @@ function placeDividers(rowSegments: (number[] | undefined)[], colSegments: (numb
 export function generateBoard(difficulty: Difficulty, rng: RNG): [Board, Solution] {
   const size = getSize(difficulty);
 
+  const blacklist = new Set<number>();
+
   while (true) {
-    const seed = rng.getNext(Number.MAX_SAFE_INTEGER);
+    let seed = rng.getNext(Number.MAX_SAFE_INTEGER);
+    while (blacklist.has(seed)) {
+      seed++;
+    }
+    blacklist.add(seed);
+
     const seededRNG = createRNG(seed);
 
     const board = new BoardImpl(size, seededRNG);
