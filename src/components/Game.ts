@@ -223,11 +223,16 @@ export function isSaveGameValid(game: unknown): game is SaveGame {
   if (!isObject(game)) return false;
 
   if (!isPositiveInt(game.level)) return false;
-  if (!isPositiveInt(game.elapsedSeconds)) return false;
+  if (!isPositiveInt(game.elapsedSeconds)) game.elapsedSeconds = 0;
 
   if (!isBoard(game.board)) return false;
   if (!isSolution(game.solution)) return false;
-  if (!isUserData(game.userData)) return false;
+  if (!isUserData(game.userData)) {
+    game.userData = {
+      values: [],
+      moves: [],
+    };
+  }
 
   return true;
 }
